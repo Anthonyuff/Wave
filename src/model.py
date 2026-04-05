@@ -17,9 +17,13 @@ class Model:
         self.sz = 20
         self.szf = [2]
         self.offset = 0
+        
         self.rx = []
         self.rz = []
         self.rzf = [0]
+
+        self.rz1 = [0]
+        
         
     def geo(self) -> None :
         
@@ -27,9 +31,14 @@ class Model:
         
         self.rx = list(range(20, self.c.nx-self.c.nabc, self.offset))
         self.rz=[20]*len(self.rx)
+        
         self.rzf = [2]*len(self.rx)
+        self.rec = np.zeros((self.c.nt, len(self.rz)))
 
-        self.sx= self.c.nx//2  
+        self.rz1 = list(range(20, self.c.nz-self.c.nabc, self.offset))
+        self.sx= self.c.nx//2
+
+          
 
 
     def  disp(self) -> None :
@@ -40,6 +49,9 @@ class Model:
         self.dh = cmax / (self.alpha * fmax)
 
         self.dt=self.dh/(self.beta*cmax)
+
+        self.time = np.arange(0,self.c.nt*self.dt,self.dt)
+        self.depth = np.arange(0,self.c.nz*self.dh,self.dh)
     
     def create(self) -> None:
         
