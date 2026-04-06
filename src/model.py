@@ -5,6 +5,7 @@ import numpy as np
 class Model:
     
     def __init__(self, c: "Config"):
+        
         self.c= c
         self.model= np.zeros((self.c.nz,self.c.nx))
         
@@ -18,8 +19,8 @@ class Model:
         self.szf = [2]
         self.offset = 0
         
-        self.rx = []
-        self.rz = []
+        self.rx = [0]
+        self.rz = [0]
         self.rzf = [0]
 
         self.rz1 = [0]
