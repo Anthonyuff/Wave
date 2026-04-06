@@ -94,10 +94,14 @@ class Wave2D:
         
         self.c= c
         self.m = m
-        self.cerjan = np.ones(self.c.nz,self.c.nx)  
+        self.cerjan = np.ones((self.c.nz,self.c.nx))  
         self.bord = np.zeros(self.c.nabc)
         self.sb = 1.5 * self.c.nabc
-        self.P = np.zeros((self.c.nz,self.c.nt))  
+        self.P = np.zeros((self.c.nz,self.c.nx,self.c.nt))
+        self.snap=np.zeros((self.c.nz,self.c.nx,500))
+        self.simo=np.zeros((self.c.nt,len(self.m.rx)))  
+
+        
     
     def ccerjan(self):
         
@@ -121,11 +125,10 @@ class Wave2D:
         
         d2u_dx2 = np.zeros((self.c.nz, self.c.nx))
         d2u_dz2 = np.zeros((self.c.nz, self.c.nx))
-
+        print(self.c.s.f0,)
         ricker1= wavelet(self.c.s.f0,self.m.time)
         
-        #criar matriz de snapshots
-        snap=np.zeros((self.c.nz,self.c.nx,500))
+        
         
         dh2 = self.m.dh * self.m.dh
         
@@ -136,7 +139,7 @@ class Wave2D:
 
         
         
-        simo=np.zeros((self.c.nt,len(self.m.rx)))
+       
         
         for t in range(1, self.c.nt-1):
             #dlay= 150 #delay
@@ -161,22 +164,57 @@ class Wave2D:
             
             if t%4==0 and s<500:
                 
-                snap[:,:,s] = self.P[:,:,t]
+                self.snap[:,:,s] = self.P[:,:,t]
                 s += 1
 
-            for j in range(len(rx)):
+            for j in range(len(self.m.rx)):
                     
-                simo[t,j] = self.P[self.m.rz[j],self.m.rx[j], t]        
+                self.simo[t,j] = self.P[self.m.rz[j],self.m.rx[j], t]        
 
-    def plot(self):
+    def plot2D(self):
         
+        abs_snap = np.abs(self.P)
+        vmax = np.percentile(abs_snap, 99)
+        vmin = -vmax
         #plot cerjan
-        plt.imshow(self.cerjan, ascpect = "auto")
+        plt.imshow(self.cerjan)
         plt.colorbar()
         plt.title('Cerjan')
         plt.show()
 
-        plt.imshow(self.P[:,:,200],cmap='gray',aspect='auto', extent=[0, 9, nt*dt, 0], vmax=vmax, vmin=vmin)
+        plt.imshow(self.P[:,:,100],cmap='gray',aspect='auto', extent=[0, 9, self.c.nt*self.m.dt, 0], vmax=vmax, vmin=vmin)
+        plt.show()
+        
+    def animation2D(self):
+            
+        from matplotlib.animation import FuncAnimation
+
+        fig,ax = plt.subplots()
+
+        ax.imshow(self.m.model,cmap='gray',aspect='auto', extent=[0, self.c.nx*self.m.dh, self.c.nz*self.m.dh, 0],alpha=0.5)
+        wave = ax.imshow(self.snap[:, :, 0], cmap="gray", aspect="auto",extent=[0, self.c.nx*self.m.dh, self.c.nz*self.m.dh, 0],alpha=0.7)
+
+
+        ax.set_xlabel("x (m)")
+        ax.set_ylabel("twt (s)")
+        ax.set_title("Snapshot")
+
+
+        def atualizar(frame):
+            
+            abs_snap = np.abs(self.snap)
+            vmax = np.percentile(abs_snap, 99)
+            vmin = -vmax
+            wave.set_data(self.snap[:,:,frame])
+            wave.set_clim(vmin, vmax)
+            ax.set_title(f"time = {frame*self.m.dt:.3f} s")
+            
+            return wave,
+
+
+        ani = FuncAnimation(fig, atualizar, frames=500, interval=10)
+        ani.save('monda2d.gif',writer='pilow',fps=30)
+        plt.show()
 
 @njit(parallel=True)
 def laplace1D(P,t,dz,nz):
