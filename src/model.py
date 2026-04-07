@@ -50,10 +50,11 @@ class Model:
         self.dh = cmax / (self.alpha * fmax)
 
         self.dt=self.dh/(self.beta*cmax)
-
+        self.dh = 8
         self.time = np.arange(0,self.c.nt*self.dt,self.dt)
         self.depth = np.arange(0,self.c.nz*self.dh,self.dh)
-    
+        print(self.dt)
+        
     def create(self) -> None:
         
         if len(self.c.v.interfaces) == 0:

@@ -122,12 +122,20 @@ class Wave2D:
     
     def eq2D(self):
 
-        
+        dlay= 50
+
         d2u_dx2 = np.zeros((self.c.nz, self.c.nx))
         d2u_dz2 = np.zeros((self.c.nz, self.c.nx))
+
         print(self.c.s.f0,)
-        ricker1= wavelet(self.c.s.f0,self.m.time)
-        
+
+        ricker1 = wavelet(self.c.s.f0,self.m.time)
+        source2 = np.zeros(self.c.nt)
+
+        wave= wavelet(self.c.s.f0,np.arange(0,(self.c.nt-dlay)*self.m.dt,self.m.dt))
+
+        source2[dlay:]= wave
+
         
         
         dh2 = self.m.dh * self.m.dh
@@ -135,18 +143,13 @@ class Wave2D:
         cte = (self.m.model * self.m.dt)**2
         s=0
         
-        
-
-        
-        
-       
-        
         for t in range(1, self.c.nt-1):
-            #dlay= 150 #delay
+            
+            dlay= 150 #delay
             # fonte
             self.P[20, self.m.sx, t] += ricker1[t] / dh2
-            # if t>=dlay:
-            #     P[20, sx+40, t] += fonte[t] / dh2
+            
+            self.P[20, self.m.sx+40, t] += source2[t] / dh2
             
             
 
@@ -182,7 +185,10 @@ class Wave2D:
         plt.title('Cerjan')
         plt.show()
 
-        plt.imshow(self.P[:,:,100],cmap='gray',aspect='auto', extent=[0, 9, self.c.nt*self.m.dt, 0], vmax=vmax, vmin=vmin)
+        plt.imshow(self.P[:,:,100],cmap='gray',aspect='auto', extent=[0, self.c.nx*self.m.dh, self.c.nt*self.m.dt, 0], vmax=vmax, vmin=vmin)
+        plt.show()
+
+        plt.imshow(self.simo,cmap='gray',aspect='auto', extent=[0, self.c.nx*self.m.dh, self.c.nt*self.m.dt, 0], vmax=vmax, vmin=vmin)
         plt.show()
         
     def animation2D(self):
@@ -213,7 +219,7 @@ class Wave2D:
 
 
         ani = FuncAnimation(fig, atualizar, frames=500, interval=10)
-        ani.save('monda2d.gif',writer='pilow',fps=30)
+        #ani.save('monda2d.gif',writer='pilow',fps=30)
         plt.show()
 
 @njit(parallel=True)
