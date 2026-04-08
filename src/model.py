@@ -48,12 +48,12 @@ class Model:
         fmax = np.max(self.c.s.f0)
 
         self.dh = cmax / (self.alpha * fmax)
-
-        self.dt=self.dh/(self.beta*cmax)
         self.dh = 8
+        self.dt=self.dh/(self.beta*cmax)
+        print(self.dt)
         self.time = np.arange(0,self.c.nt*self.dt,self.dt)
         self.depth = np.arange(0,self.c.nz*self.dh,self.dh)
-        print(self.dt)
+        
         
     def create(self) -> None:
         
@@ -74,6 +74,7 @@ class Model:
         plt.imshow(self.model, aspect="auto", extent=[0, self.c.nx * self.dh, self.c.nz * self.dh, 0])
         
         plt.scatter(np.array(self.sx) * self.dh , np.array(self.szf)*self.dh ,c= "green", marker="*", zorder=10,s=120,label="Source")
+        plt.scatter(np.array(self.sx) * self.dh +40 , np.array(self.szf)*self.dh ,c= "green", marker="*", zorder=10,s=120)
         plt.scatter(np.array(self.rx) * self.dh , np.array(self.rzf)*self.dh ,c= "red", s=10, label="Receptors")
         
         plt.colorbar(label="Velocity (m/s)")
