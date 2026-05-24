@@ -15,8 +15,9 @@ config = Config(PATH).load()
 
 model = Model(config)
 model.disp()
-model.geo()
+model.geoaqui()
 model.create()
+model.importe()
 model.plotmodel()
 
 # propa1d = Wave1D(config,model)

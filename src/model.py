@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import segyio
+from scipy.ndimage import zoom
 
 
 class Model:
@@ -24,6 +26,8 @@ class Model:
         self.rzf = [0]
 
         self.rz1 = [0]
+
+        self.marmo=np.array((self.c.nz,self.c.nx))
         
         
     def geo(self) -> None :
@@ -38,17 +42,76 @@ class Model:
 
         self.rz1 = list(range(20, self.c.nz-self.c.nabc, self.offset))
         self.sx= self.c.nx//2
+    
+    def geoaqui(self) -> None :
+        
+        self.sx= np.linspace(1000,16000,36)
+        self.sz = 280*np.ones(len(self.sx),dtype= 'float32')
 
+        self.rx= np.linspace(50,16950,170)
+        self.rz = 450*np.ones(len(self.rx),dtype= 'float32')
+        
+        fontes = np.column_stack((self.sx, self.sz))
+        np.savetxt(
+        "./config/fontes.txt",
+        fontes,
+        fmt="%.2f",
+        header="sx sz",
+        comments=""
+        )
+
+        # Salvar receptores em txt
+        receptores = np.column_stack((self.rx, self.rz))
+        np.savetxt(
+            "./config/receptores.txt",
+            receptores,
+            fmt="%.2f",
+            header="rx rz",
+            comments=""
+        )
           
+    def importe(self)-> None:
+        # self.marmo=np.fromfile('./data/Marmousi2.bin',dtype=np.float32)
 
+        # self.marmo= self.marmo.reshape((self.c.nz,self.c.nx),order='F')
+        # print(self.marmo.shape)
 
+        arquivo = "./data/MODEL_P-WAVE_VELOCITY_1.25m.segy"
+
+        with segyio.open(arquivo, "r", ignore_geometry=True) as f:
+            vel = segyio.tools.collect(f.trace[:])
+
+        print("Formato original:", vel.shape)
+
+        vel = vel.T
+
+        print("Formato como matriz:", vel.shape)
+
+        nz_novo = 396
+        nx_novo = 1701
+
+        # fator de redimensionamento
+        fator_z = nz_novo / vel.shape[0]
+        fator_x = nx_novo / vel.shape[1]
+
+        # redimensiona para 396 x 1701
+        self.marmo = zoom(vel, (fator_z, fator_x), order=1)
+
+        # força o tamanho, só por segurança
+        self.marmo = self.marmo[:nz_novo, :nx_novo]
+
+        # define dh como 10 m
+        
+
+        print("Formato final:", self.marmo.shape)
+        print("dh:", self.dh)
     def  disp(self) -> None :
         
         cmax = np.max(self.c.v.values)
         fmax = np.max(self.c.s.f0)
-
-        self.dh = cmax / (self.alpha * fmax)
-        self.dh = 8
+        self.dh = 10
+        #self.dh = cmax / (self.alpha * fmax)
+        
         self.dt=self.dh/(self.beta*cmax)
         print(self.dt)
         self.time = np.arange(0,self.c.nt*self.dt,self.dt)
@@ -71,11 +134,11 @@ class Model:
                 self.model[self.c.v.interfaces[-1]:, :] = self.c.v.values[-1]
     def plotmodel(self):
         
-        plt.imshow(self.model, aspect="auto", extent=[0, self.c.nx * self.dh, self.c.nz * self.dh, 0])
+        plt.imshow(self.marmo, aspect="auto", extent=[0, self.c.nx * self.dh, self.c.nz * self.dh, 0])
         
-        plt.scatter(np.array(self.sx) * self.dh , np.array(self.szf)*self.dh ,c= "green", marker="*", zorder=10,s=120,label="Source")
-        plt.scatter(np.array(self.sx) * self.dh +40 , np.array(self.szf)*self.dh ,c= "green", marker="*", zorder=10,s=120)
-        plt.scatter(np.array(self.rx) * self.dh , np.array(self.rzf)*self.dh ,c= "red", s=10, label="Receptors")
+        plt.scatter(self.sx , self.sz ,c= "green", marker="*", zorder=10,s=120,label="Source")
+        #plt.scatter(np.array(self.sx) * self.dh +40 , np.array(self.szf)*self.dh ,c= "green", marker="*", zorder=10,s=120)
+        plt.scatter(self.rx  , self.rz ,c= "red", s=10, label="Receptors")
         
         plt.colorbar(label="Velocity (m/s)")
         plt.xlabel("x (m)")

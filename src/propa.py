@@ -97,11 +97,12 @@ class Wave2D:
         self.cerjan = np.ones((self.c.nz,self.c.nx))  
         self.bord = np.zeros(self.c.nabc)
         self.sb = 1.5 * self.c.nabc
-        self.P = np.zeros((self.c.nz,self.c.nx,self.c.nt))
+        #self.P = np.zeros((self.c.nz,self.c.nx,self.c.nt),dtype=np.float32)
         self.snap=np.zeros((self.c.nz,self.c.nx,500))
-        self.simo=np.zeros((self.c.nt,len(self.m.rx)))  
-
-        
+        self.simo=np.zeros((self.c.nt,len(self.m.rx)))
+        self.upre =  np.zeros((self.c.nz,self.c.nx),dtype=np.float32)
+        self.ufut =  np.zeros((self.c.nz,self.c.nx),dtype=np.float32)
+        self.upas =  np.zeros((self.c.nz,self.c.nx),dtype=np.float32)
     
     def ccerjan(self):
         
@@ -124,71 +125,92 @@ class Wave2D:
 
         dlay= 50
 
-        d2u_dx2 = np.zeros((self.c.nz, self.c.nx))
-        d2u_dz2 = np.zeros((self.c.nz, self.c.nx))
+        
 
         print(self.c.s.f0,)
 
         ricker1 = wavelet(self.c.s.f0,self.m.time)
         source2 = np.zeros(self.c.nt)
 
-        wave= wavelet(self.c.s.f0,np.arange(0,(self.c.nt-dlay)*self.m.dt,self.m.dt))
+       #wave= wavelet(self.c.s.f0,np.arange(0,(self.c.nt-dlay)*self.m.dt,self.m.dt))
 
-        source2[dlay:]= wave
+        #source2[dlay:]= wave
 
         
         
         dh2 = self.m.dh * self.m.dh
         
-        cte = (self.m.model * self.m.dt)**2
+        #cte = (self.m.model * self.m.dt)**2
+        cte = (self.m.marmo * self.m.dt)**2
         s=0
-        
-        for t in range(1, self.c.nt-1):
-            
-            dlay= 150 #delay
-            # fonte
-            self.P[20, self.m.sx, t] += ricker1[t] / dh2
-            
-            self.P[20, self.m.sx+40, t] += source2[t] / dh2
-            
-            
+        for s in range(len(self.m.sx)):
+            sz = int(self.m.sz[s] / self.m.dh)
+            sx = int(self.m.sx[s] / self.m.dh)
 
-
-            laplacian = laplacian2d(
-                self.P[:, :, t], d2u_dx2, d2u_dz2, self.c.nz, self.c.nx, dh2
-            )
-
-
-            self.P[:, :, t+1] = cte * laplacian + 2*self.P[:, :, t] - self.P[:, :, t-1]
-
-            # salvar snapshots a um certo passo de tempo
-            self.P[:, :, t] *= self.cerjan
-            self.P[:, :, t+1] *= self.cerjan
-            
-            if t%4==0 and s<500:
+            for t in range(1, self.c.nt-1):
                 
-                self.snap[:,:,s] = self.P[:,:,t]
-                s += 1
+                
+                # fonte
+                self.upre[sz, sx] += ricker1[t] 
+                
+                #self.P[20, self.m.sx+40, t] += source2[t] / dh2
+                
+                
 
-            for j in range(len(self.m.rx)):
+
+                laplacian = laplacian2d(
+                    self.upre, self.c.nz, self.c.nx, dh2
+                )
+
+
+                #self.P[:, :, t+1] = cte * laplacian + 2*self.P[:, :, t] - self.P[:, :, t-1]
+                self.ufut[:,:] = cte * laplacian + 2*self.upre - self.upas
+                # salvar snapshots a um certo passo de tempo
+                self.ufut *= self.cerjan
+                
+                if t%4==0 and s<500:
                     
-                self.simo[t,j] = self.P[self.m.rz[j],self.m.rx[j], t]        
+                    self.snap[:,:,s] = self.upre[:,:]
+                    s += 1
+
+                for j in range(len(self.m.rx)):
+                    iz = int(self.m.rz[j] / self.m.dh)
+                    ix = int(self.m.rx[j] / self.m.dh)
+
+                    self.simo[t, j] = self.upre[iz, ix]
+                self.upas, self.upre, self.ufut = self.upre, self.ufut, self.upas
+                        
+                        
 
     def plot2D(self):
         
-        abs_snap = np.abs(self.P)
+        isnap = 50
+
+        snap_plot = self.snap[:, :, isnap]
+        print("min snap:", np.min(snap_plot))
+        print("max snap:", np.max(snap_plot))
+        print("maior abs:", np.max(np.abs(snap_plot)))
+        print("tem NaN?", np.isnan(snap_plot).any())
+
+        abs_snap = np.abs(snap_plot)
         vmax = np.percentile(abs_snap, 99)
         vmin = -vmax
-        #plot cerjan
-        plt.imshow(self.cerjan)
-        plt.colorbar()
-        plt.title('Cerjan')
-        plt.show()
 
-        plt.imshow(self.P[:,:,100],cmap='gray',aspect='auto', extent=[0, self.c.nx*self.m.dh, self.c.nt*self.m.dt, 0], vmax=vmax, vmin=vmin)
-        plt.show()
+        plt.figure(figsize=(10, 5))
 
-        plt.imshow(self.simo,cmap='gray',aspect='auto', extent=[0, self.c.nx*self.m.dh, self.c.nt*self.m.dt, 0], vmax=vmax, vmin=vmin)
+        plt.imshow(
+            snap_plot,
+            cmap='gray',
+            aspect='auto',
+            extent=[0, self.c.nx*self.m.dh, self.c.nz*self.m.dh, 0],
+            vmax=vmax,
+            vmin=vmin
+        )
+
+        plt.colorbar(label="Amplitude")
+        plt.xlabel("x (m)")
+        plt.ylabel("z (m)")
+        plt.title(f"Snapshot {isnap}")
         plt.show()
         
     def animation2D(self):
@@ -233,25 +255,43 @@ def laplace1D(P,t,dz,nz):
     return lap
 
 
-@njit(parallel=True)   
-def laplacian2d(upre, d2u_dx2, d2u_dz2, nzz, nxx, dh2) :
-  inv_dh2 = 1.0 / (5040.0 * dh2)
+@njit(parallel=True)
+def laplacian2d(upre, nzz, nxx, dh2):
 
-  for i in prange(4, nzz - 4):
-    for j in range(4, nxx - 4):
-      d2u_dx2[i, j] = (
-          -9   * upre[i-4, j] + 128   * upre[i-3, j] - 1008 * upre[i-2, j] +
-          8064 * upre[i-1, j] - 14350 * upre[i,   j] + 8064 * upre[i+1, j] -
-          1008 * upre[i+2, j] + 128   * upre[i+3, j] - 9    * upre[i+4, j]
-      ) * inv_dh2
+    lap = np.zeros((nzz, nxx), dtype=np.float32)
 
-      d2u_dz2[i, j] = (
-          -9   * upre[i, j-4] + 128   * upre[i, j-3] - 1008 * upre[i, j-2] +
-          8064 * upre[i, j-1] - 14350 * upre[i, j]   + 8064 * upre[i, j+1] -
-          1008 * upre[i, j+2] + 128   * upre[i, j+3] - 9    * upre[i, j+4]
-      ) * inv_dh2
+    inv_dh2 = 1.0 / (5040.0 * dh2)
 
-  return d2u_dx2 + d2u_dz2
+    for i in prange(4, nzz - 4):
+        for j in range(4, nxx - 4):
+
+            d2x = (
+                -9.0 * upre[i-4, j]
+                + 128.0 * upre[i-3, j]
+                - 1008.0 * upre[i-2, j]
+                + 8064.0 * upre[i-1, j]
+                - 14350.0 * upre[i, j]
+                + 8064.0 * upre[i+1, j]
+                - 1008.0 * upre[i+2, j]
+                + 128.0 * upre[i+3, j]
+                - 9.0 * upre[i+4, j]
+            )
+
+            d2z = (
+                -9.0 * upre[i, j-4]
+                + 128.0 * upre[i, j-3]
+                - 1008.0 * upre[i, j-2]
+                + 8064.0 * upre[i, j-1]
+                - 14350.0 * upre[i, j]
+                + 8064.0 * upre[i, j+1]
+                - 1008.0 * upre[i, j+2]
+                + 128.0 * upre[i, j+3]
+                - 9.0 * upre[i, j+4]
+            )
+
+            lap[i, j] = (d2x + d2z) * inv_dh2
+
+    return lap
 
 def wavelet(freq,t):
   f_corte = freq
