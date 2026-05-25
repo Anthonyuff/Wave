@@ -120,7 +120,7 @@ class Wave2D:
             
             self.cerjan[iz,:self.c.nabc,] *= self.bord
             self.cerjan[iz,-self.c.nabc:] *= self.bord[::-1]
-    
+    @measure_runtime
     def eq2D(self):
 
         dlay= 50
@@ -143,9 +143,14 @@ class Wave2D:
         #cte = (self.m.model * self.m.dt)**2
         cte = (self.m.marmo * self.m.dt)**2
         s=0
-        for s in range(len(self.m.sx)):
-            sz = int(self.m.sz[s] / self.m.dh)
-            sx = int(self.m.sx[s] / self.m.dh)
+        for sh in range(2):
+
+            self.upas[:, :] = 0.0
+            self.upre[:, :] = 0.0
+            self.ufut[:, :] = 0.0
+            self.simo[:, :] = 0.0
+            sz = int(self.m.sz[sh] / self.m.dh)
+            sx = int(self.m.sx[sh] / self.m.dh)
 
             for t in range(1, self.c.nt-1):
                 
@@ -178,13 +183,14 @@ class Wave2D:
                     ix = int(self.m.rx[j] / self.m.dh)
 
                     self.simo[t, j] = self.upre[iz, ix]
+                
                 self.upas, self.upre, self.ufut = self.upre, self.ufut, self.upas
                         
-                        
+            self.simo.astype('float32').flatten(order='F').tofile(f'./Sismogram/Sismogram_P_NT2000_R170_SHOT{sh+1}.bin')             
 
     def plot2D(self):
         
-        isnap = 50
+        isnap = 150
 
         snap_plot = self.snap[:, :, isnap]
         print("min snap:", np.min(snap_plot))
@@ -211,6 +217,37 @@ class Wave2D:
         plt.xlabel("x (m)")
         plt.ylabel("z (m)")
         plt.title(f"Snapshot {isnap}")
+        plt.show()
+
+        arquivo = f"./Sismogram/Sismogram_P_NT2000_R170_SHOT{2}.bin"
+
+        sismo = np.fromfile(arquivo, dtype="float32")
+
+        sismo = sismo.reshape((self.c.nt, len(self.m.rx)), order="F")
+
+        vmax = np.percentile(np.abs(sismo), 99)
+        vmin = -vmax
+
+        plt.figure(figsize=(10, 6))
+
+        plt.imshow(
+            sismo,
+            cmap="gray",
+            aspect="auto",
+            extent=[
+                self.m.rx[0],
+                self.m.rx[-1],
+                self.c.nt * self.m.dt,
+                0
+            ],
+            vmin=vmin,
+            vmax=vmax
+        )
+
+        plt.colorbar(label="Amplitude")
+        plt.xlabel("Receiver position x (m)")
+        plt.ylabel("Time (s)")
+        plt.title("Seismogram")
         plt.show()
         
     def animation2D(self):
