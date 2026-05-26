@@ -14,6 +14,9 @@ class Model:
         self.dh = 0
         self.dt = 0
 
+        self.nz_util = 351
+        self.nx_util = 1701
+
         self.alpha= 3
         self.beta= 4
         self.sx = 0
@@ -70,7 +73,7 @@ class Model:
             comments=""
         )
           
-    def importe(self)-> None:
+    def importe(self)-> None: 
         # self.marmo=np.fromfile('./data/Marmousi2.bin',dtype=np.float32)
 
         # self.marmo= self.marmo.reshape((self.c.nz,self.c.nx),order='F')
@@ -87,24 +90,39 @@ class Model:
 
         print("Formato como matriz:", vel.shape)
 
-        nz_novo = 396
-        nx_novo = 1701
+        self.nz_util = 351
+        self.nx_util = 1701
 
         # fator de redimensionamento
-        fator_z = nz_novo / vel.shape[0]
-        fator_x = nx_novo / vel.shape[1]
+        fator_z = self.nz_util/ vel.shape[0]
+        fator_x = self.nx_util / vel.shape[1]
 
         # redimensiona para 396 x 1701
-        self.marmo = zoom(vel, (fator_z, fator_x), order=1)
+        self.marmo_util = zoom(vel, (fator_z, fator_x), order=1)
 
         # força o tamanho, só por segurança
-        self.marmo = self.marmo[:nz_novo, :nx_novo]
+        self.marmo_util = self.marmo_util[:self.nz_util, :self.nx_util].astype("float32")
+
+        self.nabc = self.c.nabc
+
 
         # define dh como 10 m
-        
+        self.marmo = np.pad(
+                            self.marmo_util,
+                            pad_width=((self.nabc, self.nabc), (self.nabc, self.nabc)),
+                            mode="edge"
+                            ).astype("float32")
 
-        print("Formato final:", self.marmo.shape)
-        print("dh:", self.dh)
+    # agora muda para o tamanho total da propagação
+        self.c.nz = self.marmo.shape[0]
+        self.c.nx = self.marmo.shape[1]
+
+        print("Modelo útil:", self.marmo_util.shape)
+        print("Modelo com borda:", self.marmo.shape)
+        print("nz total:", self.c.nz)
+        print("nx total:", self.c.nx)
+
+       
     def  disp(self) -> None :
         
         cmax = np.max(self.c.v.values)
@@ -134,7 +152,7 @@ class Model:
                 self.model[self.c.v.interfaces[-1]:, :] = self.c.v.values[-1]
     def plotmodel(self):
         
-        plt.imshow(self.marmo, aspect="auto", extent=[0, self.c.nx * self.dh, self.c.nz * self.dh, 0])
+        plt.imshow(self.marmo, aspect="auto", extent=[0, self.nx_util * self.dh, self.nz_util  * self.dh, 0])
         
         plt.scatter(self.sx , self.sz ,c= "green", marker="*", zorder=10,s=120,label="Source")
         #plt.scatter(np.array(self.sx) * self.dh +40 , np.array(self.szf)*self.dh ,c= "green", marker="*", zorder=10,s=120)

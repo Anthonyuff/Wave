@@ -120,6 +120,31 @@ class Wave2D:
             
             self.cerjan[iz,:self.c.nabc,] *= self.bord
             self.cerjan[iz,-self.c.nabc:] *= self.bord[::-1]
+
+
+    def make_cerjan(self):
+
+        self.cerjan[:, :] = 1.0
+
+        # quanto maior alpha, mais forte a absorção
+        alpha = 0.015
+
+        for i in range(self.c.nabc):
+
+            dist = self.c.nabc - i
+            damp = np.exp(-alpha * dist**2)
+
+            # topo
+            self.cerjan[i, :] *= damp
+
+            # fundo
+            self.cerjan[-i-1, :] *= damp
+
+            # esquerda
+            self.cerjan[:, i] *= damp
+
+            # direita
+            self.cerjan[:, -i-1] *= damp
     @measure_runtime
     def eq2D(self):
 
@@ -149,8 +174,8 @@ class Wave2D:
             self.upre[:, :] = 0.0
             self.ufut[:, :] = 0.0
             self.simo[:, :] = 0.0
-            sz = int(self.m.sz[sh] / self.m.dh)
-            sx = int(self.m.sx[sh] / self.m.dh)
+            sz = int(self.m.sz[sh] / self.m.dh) + self.m.nabc
+            sx = int(self.m.sx[sh] / self.m.dh) + self.m.nabc
 
             for t in range(1, self.c.nt-1):
                 
@@ -172,15 +197,15 @@ class Wave2D:
                 self.ufut[:,:] = cte * laplacian + 2*self.upre - self.upas
                 # salvar snapshots a um certo passo de tempo
                 self.ufut *= self.cerjan
-                
+                self.upre *= self.cerjan
                 if t%4==0 and s<500:
                     
                     self.snap[:,:,s] = self.upre[:,:]
                     s += 1
 
                 for j in range(len(self.m.rx)):
-                    iz = int(self.m.rz[j] / self.m.dh)
-                    ix = int(self.m.rx[j] / self.m.dh)
+                    iz = int(self.m.rz[j] / self.m.dh) + self.m.nabc
+                    ix = int(self.m.rx[j] / self.m.dh) + self.m.nabc
 
                     self.simo[t, j] = self.upre[iz, ix]
                 
@@ -190,36 +215,36 @@ class Wave2D:
 
     def plot2D(self):
         
-        isnap = 150
+        # isnap = 150
 
-        snap_plot = self.snap[:, :, isnap]
-        print("min snap:", np.min(snap_plot))
-        print("max snap:", np.max(snap_plot))
-        print("maior abs:", np.max(np.abs(snap_plot)))
-        print("tem NaN?", np.isnan(snap_plot).any())
+        # snap_plot = self.snap[:, :, isnap]
+        # print("min snap:", np.min(snap_plot))
+        # print("max snap:", np.max(snap_plot))
+        # print("maior abs:", np.max(np.abs(snap_plot)))
+        # print("tem NaN?", np.isnan(snap_plot).any())
 
-        abs_snap = np.abs(snap_plot)
-        vmax = np.percentile(abs_snap, 99)
-        vmin = -vmax
+        # abs_snap = np.abs(snap_plot)
+        # vmax = np.percentile(abs_snap, 99)
+        # vmin = -vmax
 
-        plt.figure(figsize=(10, 5))
+        # plt.figure(figsize=(10, 5))
 
-        plt.imshow(
-            snap_plot,
-            cmap='gray',
-            aspect='auto',
-            extent=[0, self.c.nx*self.m.dh, self.c.nz*self.m.dh, 0],
-            vmax=vmax,
-            vmin=vmin
-        )
+        # plt.imshow(
+        #     snap_plot,
+        #     cmap='gray',
+        #     aspect='auto',
+        #     extent=[0, self.c.nx*self.m.dh, self.c.nz*self.m.dh, 0],
+        #     vmax=vmax,
+        #     vmin=vmin
+        # )
 
-        plt.colorbar(label="Amplitude")
-        plt.xlabel("x (m)")
-        plt.ylabel("z (m)")
-        plt.title(f"Snapshot {isnap}")
-        plt.show()
+        # plt.colorbar(label="Amplitude")
+        # plt.xlabel("x (m)")
+        # plt.ylabel("z (m)")
+        # plt.title(f"Snapshot {isnap}")
+        # plt.show()
 
-        arquivo = f"./Sismogram/Sismogram_P_NT2000_R170_SHOT{2}.bin"
+        arquivo = f"./Sismogram/Sismogram_P_NT2000_R170_SHOT{1}.bin"
 
         sismo = np.fromfile(arquivo, dtype="float32")
 
