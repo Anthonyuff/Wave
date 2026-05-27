@@ -103,7 +103,10 @@ class Wave2D:
         self.upre =  np.zeros((self.c.nz,self.c.nx),dtype=np.float32)
         self.ufut =  np.zeros((self.c.nz,self.c.nx),dtype=np.float32)
         self.upas =  np.zeros((self.c.nz,self.c.nx),dtype=np.float32)
-    
+        self.c.factor= 0.0015
+
+        self.damp_x= np.zeros(self.c.nx)
+        self.damp_z= np.zeros(self.c.nz)
     def ccerjan(self):
         
         for i in range(self.c.nabc):
@@ -124,27 +127,31 @@ class Wave2D:
 
     def make_cerjan(self):
 
-        self.cerjan[:, :] = 1.0
+        for i in range(self.c.nz):
 
-        # quanto maior alpha, mais forte a absorção
-        alpha = 0.015
+            if self.c.nabc <= i < self.c.nabc + self.c.nz:
+                self.damp_z[i] = 1.0
 
-        for i in range(self.c.nabc):
+            elif i < self.c.nabc:
+                d = self.c.nabc - i
+                self.damp_z[i] = np.exp(-(self.c.factor * d) * (self.c.factor * d))
 
-            dist = self.c.nabc - i
-            damp = np.exp(-alpha * dist**2)
+            else:
+                d = i - (self.c.nabc + self.c.nz - 1)
+                self.damp_z[i] = np.exp(-(self.c.factor * d) * (self.c.factor * d))
 
-            # topo
-            self.cerjan[i, :] *= damp
+        for j in range(self.c.nx):
 
-            # fundo
-            self.cerjan[-i-1, :] *= damp
+            if self.c.nabc <= j < self.c.nabc+ self.c.nx:
+                self.damp_x[j] = 1.0
 
-            # esquerda
-            self.cerjan[:, i] *= damp
+            elif j < self.c.nabc:
+                d = self.c.nabc - j
+                self.damp_x[j] = np.exp(-(self.c.factor * d) * (self.c.factor * d))
 
-            # direita
-            self.cerjan[:, -i-1] *= damp
+            else:
+                d = j - (self.c.nabc + self.c.nx - 1)
+                self.damp_x[j] = np.exp(-(self.c.factor * d) * (self.c.factor * d))
     @measure_runtime
     def eq2D(self):
 
@@ -155,7 +162,7 @@ class Wave2D:
         print(self.c.s.f0,)
 
         ricker1 = wavelet(self.c.s.f0,self.m.time)
-        source2 = np.zeros(self.c.nt)
+        #source2 = np.zeros(self.c.nt)
 
        #wave= wavelet(self.c.s.f0,np.arange(0,(self.c.nt-dlay)*self.m.dt,self.m.dt))
 
@@ -196,8 +203,16 @@ class Wave2D:
                 #self.P[:, :, t+1] = cte * laplacian + 2*self.P[:, :, t] - self.P[:, :, t-1]
                 self.ufut[:,:] = cte * laplacian + 2*self.upre - self.upas
                 # salvar snapshots a um certo passo de tempo
-                self.ufut *= self.cerjan
-                self.upre *= self.cerjan
+
+                for i in prange(4, self.c.nz - 4):
+                    for j in range(4, self.c.nx - 4):
+                        damp = self.damp_x[i]*self.damp_z[i]
+                        
+                        self.ufut = self.upre * damp
+                        self.upre = self.upas * damp
+
+                
+                
                 if t%4==0 and s<500:
                     
                     self.snap[:,:,s] = self.upre[:,:]
@@ -352,6 +367,7 @@ def laplacian2d(upre, nzz, nxx, dh2):
             )
 
             lap[i, j] = (d2x + d2z) * inv_dh2
+    
 
     return lap
 
