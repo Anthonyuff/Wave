@@ -104,7 +104,7 @@ class Wave2D:
         self.ufut =  np.zeros((self.c.nz,self.c.nx),dtype=np.float32)
         self.upas =  np.zeros((self.c.nz,self.c.nx),dtype=np.float32)
         self.c.factor= 0.0015
-
+        self.damp = 0
         self.damp_x= np.zeros(self.c.nx)
         self.damp_z= np.zeros(self.c.nz)
     def ccerjan(self):
@@ -195,22 +195,16 @@ class Wave2D:
                 
 
 
-                laplacian = laplacian2d(
-                    self.upre, self.c.nz, self.c.nx, dh2
+                self.ufut,self.upre,self.upas = laplacian2d(
+                    self.upre, self.c.nz, self.c.nx, dh2, self.upas,self.ufut,self.damp_x,self.damp_z,cte
                 )
 
 
                 #self.P[:, :, t+1] = cte * laplacian + 2*self.P[:, :, t] - self.P[:, :, t-1]
-                self.ufut[:,:] = cte * laplacian + 2*self.upre - self.upas
+                #self.ufut[:,:] = cte * laplacian + 2*self.upre - self.upas
                 # salvar snapshots a um certo passo de tempo
 
-                for i in prange(4, self.c.nz - 4):
-                    for j in range(4, self.c.nx - 4):
-                        damp = self.damp_x[i]*self.damp_z[i]
-                        
-                        self.ufut = self.upre * damp
-                        self.upre = self.upas * damp
-
+                
                 
                 
                 if t%4==0 and s<500:
@@ -333,7 +327,7 @@ def laplace1D(P,t,dz,nz):
 
 
 @njit(parallel=True)
-def laplacian2d(upre, nzz, nxx, dh2):
+def laplacian2d(upre, nzz, nxx, dh2,upas,ufut,damp_x,damp_z,cte):
 
     lap = np.zeros((nzz, nxx), dtype=np.float32)
 
@@ -366,10 +360,29 @@ def laplacian2d(upre, nzz, nxx, dh2):
                 - 9.0 * upre[i, j+4]
             )
 
+            
             lap[i, j] = (d2x + d2z) * inv_dh2
+
+            damp = damp_z[i] * damp_x[j]
+
+            ufut[i, j] = (
+                cte[i, j] * lap[i, j]
+                + 2.0 * upre[i, j]
+                - upas[i, j]
+            ) 
+           
+    for i in prange(nzz):
+        for j in range(nxx):
+
+            damp = damp_z[i] * damp_x[j]
+
+            ufut[i, j] *= damp
+            upre[i, j] *= damp
+            upas[i, j] *= damp
+
     
 
-    return lap
+    return ufut,upre,upas
 
 def wavelet(freq,t):
   f_corte = freq
