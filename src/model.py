@@ -13,7 +13,7 @@ class Model:
         
         self.dh = 0
         self.dt = 0
-
+ 
         self.nz_util = 351
         self.nx_util = 1701
 
@@ -116,7 +116,7 @@ class Model:
     # agora muda para o tamanho total da propagação
         self.c.nz = self.marmo.shape[0]
         self.c.nx = self.marmo.shape[1]
-
+        print(self.dh)
         print("Modelo útil:", self.marmo_util.shape)
         print("Modelo com borda:", self.marmo.shape)
         print("nz total:", self.c.nz)
@@ -152,7 +152,7 @@ class Model:
                 self.model[self.c.v.interfaces[-1]:, :] = self.c.v.values[-1]
     def plotmodel(self):
         
-        plt.imshow(self.marmo, aspect="auto", extent=[0, self.nx_util * self.dh, self.nz_util  * self.dh, 0])
+        plt.imshow(self.marmo_util, aspect="auto", extent=[0, self.nx_util * self.dh, self.nz_util  * self.dh, 0])
         
         plt.scatter(self.sx , self.sz ,c= "green", marker="*", zorder=10,s=120,label="Source")
         #plt.scatter(np.array(self.sx) * self.dh +40 , np.array(self.szf)*self.dh ,c= "green", marker="*", zorder=10,s=120)

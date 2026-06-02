@@ -126,32 +126,40 @@ class Wave2D:
 
 
     def make_cerjan(self):
+        
+        nabc = self.c.nabc
+        nz = self.c.nz
+        nx = self.c.nx
 
-        for i in range(self.c.nz):
+        # Amortecimento vertical: topo e fundo
+        for i in range(nz):
 
-            if self.c.nabc <= i < self.c.nabc + self.c.nz:
+            if i < nabc:
+                d = nabc - i
+                self.damp_z[i] = np.exp(-(self.c.factor * d) ** 2)
+
+            elif i >= nz - nabc:
+                d = i - (nz - nabc - 1)
+                self.damp_z[i] = np.exp(-(self.c.factor * d) ** 2)
+
+            else:
                 self.damp_z[i] = 1.0
 
-            elif i < self.c.nabc:
-                d = self.c.nabc - i
-                self.damp_z[i] = np.exp(-(self.c.factor * d) * (self.c.factor * d))
+        # Amortecimento horizontal: esquerda e direita
+        for j in range(nx):
+
+            if j < nabc:
+                d = nabc - j
+                self.damp_x[j] = np.exp(-(self.c.factor * d) ** 2)
+
+            elif j >= nx - nabc:
+                d = j - (nx - nabc - 1)
+                self.damp_x[j] = np.exp(-(self.c.factor * d) ** 2)
 
             else:
-                d = i - (self.c.nabc + self.c.nz - 1)
-                self.damp_z[i] = np.exp(-(self.c.factor * d) * (self.c.factor * d))
-
-        for j in range(self.c.nx):
-
-            if self.c.nabc <= j < self.c.nabc+ self.c.nx:
                 self.damp_x[j] = 1.0
 
-            elif j < self.c.nabc:
-                d = self.c.nabc - j
-                self.damp_x[j] = np.exp(-(self.c.factor * d) * (self.c.factor * d))
-
-            else:
-                d = j - (self.c.nabc + self.c.nx - 1)
-                self.damp_x[j] = np.exp(-(self.c.factor * d) * (self.c.factor * d))
+        print(self.damp_x)
     @measure_runtime
     def eq2D(self):
 
@@ -175,7 +183,7 @@ class Wave2D:
         #cte = (self.m.model * self.m.dt)**2
         cte = (self.m.marmo * self.m.dt)**2
         s=0
-        for sh in range(2):
+        for sh in range(36):
 
             self.upas[:, :] = 0.0
             self.upre[:, :] = 0.0
@@ -253,7 +261,7 @@ class Wave2D:
         # plt.title(f"Snapshot {isnap}")
         # plt.show()
 
-        arquivo = f"./Sismogram/Sismogram_P_NT2000_R170_SHOT{1}.bin"
+        arquivo = f"./Sismogram/Sismogram_P_NT2000_R170_SHOT{15}.bin"
 
         sismo = np.fromfile(arquivo, dtype="float32")
 

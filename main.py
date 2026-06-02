@@ -28,7 +28,7 @@ model.plotmodel()
 
 propa2d = Wave2D(config,model)
 propa2d.make_cerjan()
-propa2d.eq2D()
+#propa2d.eq2D()
 propa2d.plot2D()
 #propa2d.animation2D()
 
