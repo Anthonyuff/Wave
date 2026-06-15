@@ -2,6 +2,7 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 from numba import njit, prange
+import os
 
 def measure_runtime(func):
   def wrapper(*args, **kwargs):
@@ -99,7 +100,8 @@ class Wave2D:
         self.sb = 1.5 * self.c.nabc
         #self.P = np.zeros((self.c.nz,self.c.nx,self.c.nt),dtype=np.float32)
         self.snap=np.zeros((self.c.nz,self.c.nx,500))
-        self.simo=np.zeros((self.c.nt,len(self.m.rx)))
+        self.CSG=np.zeros((self.c.nt,len(self.m.rx)))
+        self.CRG=np.zeros((self.c.nt,len(self.m.rx)))
         self.upre =  np.zeros((self.c.nz,self.c.nx),dtype=np.float32)
         self.ufut =  np.zeros((self.c.nz,self.c.nx),dtype=np.float32)
         self.upas =  np.zeros((self.c.nz,self.c.nx),dtype=np.float32)
@@ -161,7 +163,7 @@ class Wave2D:
 
         print(self.damp_x)
     @measure_runtime
-    def eq2D(self):
+    def eq2DS(self):
 
         dlay= 50
 
@@ -188,7 +190,7 @@ class Wave2D:
             self.upas[:, :] = 0.0
             self.upre[:, :] = 0.0
             self.ufut[:, :] = 0.0
-            self.simo[:, :] = 0.0
+            self.CSG[:, :] = 0.0
             sz = int(self.m.sz[sh] / self.m.dh) + self.m.nabc
             sx = int(self.m.sx[sh] / self.m.dh) + self.m.nabc
 
@@ -224,11 +226,95 @@ class Wave2D:
                     iz = int(self.m.rz[j] / self.m.dh) + self.m.nabc
                     ix = int(self.m.rx[j] / self.m.dh) + self.m.nabc
 
-                    self.simo[t, j] = self.upre[iz, ix]
+                    self.CSG[t, j] = self.upre[iz, ix]
                 
                 self.upas, self.upre, self.ufut = self.upre, self.ufut, self.upas
                         
-            self.simo.astype('float32').flatten(order='F').tofile(f'./Sismogram/Sismogram_P_NT2000_R170_SHOT{sh+1}.bin')             
+            self.CSG.astype('float32').flatten(order='F').tofile(f'./Sismogram/Sismogram_P_NT2000_R170_SHOT{sh+1}.bin')
+
+
+
+    def eq2DR(self):
+
+        ns = 170      # número de tiros
+        nr = 36       # número de receptores
+        nt = self.c.nt
+
+        os.makedirs("./CRG", exist_ok=True)
+
+        ricker1 = wavelet(self.c.s.f0, self.m.time)
+
+        dh2 = self.m.dh * self.m.dh
+        cte = (self.m.marmo * self.m.dt) ** 2
+
+        # posições dos receptores já convertidas para índice da malha
+        rz_all = (self.m.rz[:nr] / self.m.dh).astype(int) + self.m.nabc
+        rx_all = (self.m.rx[:nr] / self.m.dh).astype(int) + self.m.nabc
+
+        # cria os arquivos CRG direto no disco
+        crg_files = []
+
+        for rec in range(nr):
+
+            fname = f"./CRG/CRG_REC{rec+1}_NT{nt}_NS{ns}.bin"
+
+            crg = np.memmap(
+                fname,
+                dtype="float32",
+                mode="w+",
+                shape=(nt, ns),
+                order="F"
+            )
+
+            crg[:, :] = 0.0
+            crg_files.append(crg)
+
+        # agora roda cada tiro uma única vez
+        for sh in range(ns):
+
+            print(f"Rodando tiro {sh+1}/{ns}")
+
+            self.upas[:, :] = 0.0
+            self.upre[:, :] = 0.0
+            self.ufut[:, :] = 0.0
+
+            sz = int(self.m.sz[sh] / self.m.dh) + self.m.nabc
+            sx = int(self.m.sx[sh] / self.m.dh) + self.m.nabc
+
+            for t in range(1, nt - 1):
+
+                # fonte
+                self.upre[sz, sx] += ricker1[t]
+
+                self.ufut, self.upre, self.upas = laplacian2d(
+                    self.upre,
+                    self.c.nz,
+                    self.c.nx,
+                    dh2,
+                    self.upas,
+                    self.ufut,
+                    self.damp_x,
+                    self.damp_z,
+                    cte
+                )
+
+                # salva direto no CRG:
+                # cada receptor recebe uma coluna do tiro sh
+                for rec in range(nr):
+
+                    rz = rz_all[rec]
+                    rx = rx_all[rec]
+
+                    crg_files[rec][t, sh] = self.upre[rz, rx]
+
+                self.upas, self.upre, self.ufut = self.upre, self.ufut, self.upas
+
+        # garante que tudo foi salvo no disco
+        for rec in range(nr):
+            crg_files[rec].flush()
+
+        print("CRGs salvos com sucesso!")
+
 
     def plot2D(self):
         
@@ -261,11 +347,11 @@ class Wave2D:
         # plt.title(f"Snapshot {isnap}")
         # plt.show()
 
-        arquivo = f"./Sismogram/Sismogram_P_NT2000_R170_SHOT{15}.bin"
+        arquivo = f"CRG/CRG_REC30_NT10000_NS170.bin"
 
         sismo = np.fromfile(arquivo, dtype="float32")
 
-        sismo = sismo.reshape((self.c.nt, len(self.m.rx)), order="F")
+        sismo = sismo.reshape((self.c.nt, len(self.m.sx)), order="F")
 
         vmax = np.percentile(np.abs(sismo), 99)
         vmin = -vmax
