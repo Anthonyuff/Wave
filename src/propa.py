@@ -165,7 +165,7 @@ class Wave2D:
     @measure_runtime
     def eq2DS(self):
 
-        dlay= 50
+        #dlay= 50
 
         
 
@@ -185,7 +185,7 @@ class Wave2D:
         #cte = (self.m.model * self.m.dt)**2
         cte = (self.m.marmo * self.m.dt)**2
         s=0
-        for sh in range(36):
+        for sh in range(16):
 
             self.upas[:, :] = 0.0
             self.upre[:, :] = 0.0
@@ -198,7 +198,7 @@ class Wave2D:
                 
                 
                 # fonte
-                self.upre[sz, sx] += ricker1[t] 
+                self.upre[sz, sx] += (self.m.dt**2 / dh2) * ricker1[t]
                 
                 #self.P[20, self.m.sx+40, t] += source2[t] / dh2
                 
@@ -217,10 +217,10 @@ class Wave2D:
                 
                 
                 
-                if t%4==0 and s<500:
+                # if t%4==0 and s<500:
                     
-                    self.snap[:,:,s] = self.upre[:,:]
-                    s += 1
+                #     self.snap[:,:,s] = self.upre[:,:]
+                #     s += 1
 
                 for j in range(len(self.m.rx)):
                     iz = int(self.m.rz[j] / self.m.dh) + self.m.nabc
@@ -347,13 +347,13 @@ class Wave2D:
         # plt.title(f"Snapshot {isnap}")
         # plt.show()
 
-        arquivo = f"CRG/CRG_REC30_NT10000_NS170.bin"
+        arquivo = f"Sismogram/Sismogram_P_NT2000_R170_SHOT15.bin"
 
         sismo = np.fromfile(arquivo, dtype="float32")
 
-        sismo = sismo.reshape((self.c.nt, len(self.m.sx)), order="F")
+        sismo = sismo.reshape((self.c.nt, len(self.m.rx)), order="F")
 
-        vmax = np.percentile(np.abs(sismo), 99)
+        vmax = np.std(sismo)
         vmin = -vmax
 
         plt.figure(figsize=(10, 6))

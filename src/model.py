@@ -48,11 +48,11 @@ class Model:
     
     def geoaqui(self) -> None :
         
-        self.rx= np.linspace(1000,16000,36)
-        self.rz = 280*np.ones(len(self.rx),dtype= 'float32')
+        self.sx= np.linspace(1000,16000,36)
+        self.sz = 280*np.ones(len(self.sx),dtype= 'float32')
 
-        self.sx= np.linspace(50,16950,170)
-        self.sz = 450*np.ones(len(self.sx),dtype= 'float32')
+        self.rx= np.linspace(50,16950,170)
+        self.rz = 450*np.ones(len(self.rx),dtype= 'float32')
         
         fontes = np.column_stack((self.sx, self.sz))
         np.savetxt(
